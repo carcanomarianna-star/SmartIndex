@@ -1,0 +1,581 @@
+<!--
+Palette: Neon Cyber (Deep Navy #0F172A, Cyan #06B6D4, Pink #EC4899, Indigo #6366F1)
+Plan Summary:
+1. Overview: Compact KPIs optimized for iframe height constraints.
+2. Content Density: Bar chart comparing chapter counts (max height 250px for iframe fitting).
+3. Topic Distribution: Doughnut chart showing theme frequency (max height 250px).
+4. Smart Index: Searchable directory with a STICKY search bar so it remains accessible while scrolling the iframe.
+Visualizations:
+- Data Point: Chapters per Video -> Goal: Compare -> Visualization: Bar Chart -> Justification: Chart.js Canvas. NO SVG used.
+- Data Point: Core Themes -> Goal: Organize -> Visualization: Doughnut Chart -> Justification: Chart.js Canvas. NO SVG used.
+Confirmation: NEITHER Mermaid JS NOR SVG were used anywhere in the output.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Index: AC03 Module (SharePoint Widget)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* iFrame specific body styling */
+body {
+    background-color: #0f172a;
+    color: #f8fafc;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    /* Custom scrollbars for Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #475569 transparent;
+}
+/* Custom slim scrollbars for Webkit/Chrome/Edge (Crucial for iFrames) */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: transparent; 
+}
+::-webkit-scrollbar-thumb {
+    background: #475569; 
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #64748b; 
+}
+
+/* Compact Chart Containers */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    max-height: 250px;
+    margin: 0 auto;
+}
+@media (min-width: 768px) {
+    .chart-container {
+        height: 220px;
+    }
+}
+
+.search-highlight {
+    background-color: #ec4899;
+    color: #ffffff;
+    padding: 0 0.125rem;
+    border-radius: 0.125rem;
+    font-weight: 600;
+}
+input[type="text"] {
+    background-color: #1e293b;
+    border: 1px solid #334155;
+    color: #f8fafc;
+}
+input[type="text"]:focus {
+    outline: none;
+    border-color: #06b6d4;
+    box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.3);
+}
+
+/* Sticky wrapper for search bar inside the iframe */
+.sticky-search {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background-color: #0f172a; /* Match body bg to hide scrolling items behind it */
+    padding-top: 10px;
+    padding-bottom: 10px;
+    margin-bottom: 1rem;
+}
+</style>
+</head>
+<body class="antialiased">
+
+<!-- Main wrapper with padding optimized for iFrames -->
+<div class="w-full max-w-6xl mx-auto px-3 py-4 sm:px-6">
+    
+    <!-- Compact Header -->
+    <header class="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-700 pb-4">
+        <div class="flex-1">
+            <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-500 mb-1">
+                &#128214; AC03 Smart Index
+            </h1>
+            <p class="text-xs md:text-sm text-slate-400 max-w-xl leading-relaxed">
+                Interactive directory for Cloudworx & Cyclone training. Search commands or tools to locate exact video timestamps.
+            </p>
+        </div>
+        
+        <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+            <!-- Smaller, more subtle upload button -->
+            <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-cyan-500/30 px-3 py-1.5 rounded text-xs font-semibold transition-all shadow-sm flex items-center gap-1 group">
+                <span class="text-sm group-hover:-translate-y-0.5 transition-transform">&#128194;</span> Update CSV
+                <input type="file" id="csvFileInput" accept=".csv" class="hidden">
+            </label>
+            
+            <div class="flex gap-2 text-center">
+                <div class="bg-slate-800 rounded px-3 py-2 border border-slate-700 shadow-sm min-w-[70px]">
+                    <span id="statVideos" class="block text-xl font-bold text-cyan-400">0</span>
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold">Videos</span>
+                </div>
+                <div class="bg-slate-800 rounded px-3 py-2 border border-slate-700 shadow-sm min-w-[70px]">
+                    <span id="statChapters" class="block text-xl font-bold text-pink-500">0</span>
+                    <span class="text-[10px] text-slate-400 uppercase font-semibold">Chapters</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main id="dashboardMain" class="space-y-6">
+
+        <!-- Compact Charts Grid -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            <div class="bg-slate-800 rounded-xl shadow p-4 border border-slate-700 flex flex-col">
+                <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2 mb-2">
+                    &#128202; Content Density
+                </h2>
+                <div class="chart-container flex-1">
+                    <canvas id="densityChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-slate-800 rounded-xl shadow p-4 border border-slate-700 flex flex-col">
+                <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2 mb-2">
+                    &#127919; Core Themes
+                </h2>
+                <div class="chart-container flex-1">
+                    <canvas id="themeChart"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Smart Locator Section -->
+        <section class="relative">
+            
+            <!-- Sticky Search Bar - STAYS VISIBLE IN IFRAME WHEN SCROLLING -->
+            <div class="sticky-search">
+                <div class="relative max-w-3xl mx-auto">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-xl">
+                        &#8981;
+                    </span>
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="Search for 'OFFSET', 'Slice', 'Manager'..." 
+                        class="w-full py-3 pl-12 pr-4 text-base rounded-lg transition-all shadow-inner placeholder-slate-500"
+                    >
+                </div>
+                <div id="resultsSummary" class="text-xs text-cyan-400 font-semibold mt-2 text-center hidden"></div>
+            </div>
+
+            <!-- Scrollable Results Area -->
+            <div class="bg-slate-800 rounded-xl shadow-lg border border-slate-700 p-2 sm:p-4">
+                <div id="directoryList" class="space-y-3">
+                    <!-- Cards injected here -->
+                </div>
+                
+                <div id="noResults" class="hidden text-center py-8">
+                    <div class="text-4xl mb-2">&#128683;</div>
+                    <h3 class="text-lg font-bold text-slate-300">No matching chapters</h3>
+                    <p class="text-sm text-slate-500">Try adjusting your search terms.</p>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+</div>
+
+<script>
+// --- EMBEDDED CSV DATA ---
+const embeddedCSV = `Video title,Chapters
+AC03.01 Cloudworx and Cyclone,00:00:00 Index
+,00:00:23 Software Centre: Cloudworx
+,00:01:01 Software Centre: Cyclone CORE
+,00:01:24 Cloudworx & Cyclone CORE
+,00:02:23 Cyclone User Configuration Manager
+,00:02:53 License Server
+,00:03:08 @PCAZLEICA
+,00:03:26 Cyclone License Manager
+,00:03:48 Copy data locally
+,00:04:12 Data Location & folder Structure
+,00:04:55 Importing a database
+,00:06:02 Practice Data
+,00:06:28 Cloudworx Helpline
+,00:06:43 Feedback
+AC03.02 Cloudworx Toolbar,00:00:23 Close AutoCAD & reopen
+,00:00:32 Cloudworx Toolbar
+,00:00:59 Open Cyclone CORE
+,00:01:37 METERS !!!
+,00:01:53 Navigate to Uni IMP modelspace
+,00:02:15 Zoom Extent
+,00:02:29 PC VPORTS
+,00:03:05 Point cloud colours
+,00:04:29 Clipping Tools
+,00:07:03 Visibility 
+,00:08:09 Other toolbars & full toolbars
+,00:09:01 Close project
+AC03.03 View and Navigate,00:00:00 Index
+,00:00:30 Standard Views
+,00:01:45 Orbit & Pan
+AC03.04 Slices and Sections,00:00:00 Index
+,00:00:45 Quick Slice
+,00:02:10 Section Manager
+AC03.05 Linework extraction,00:00:00 Index
+,00:01:15 Fit Line to Cloud
+,00:03:00 Polyline tools
+AC03.06 Advanced Clipping,00:00:00 Index
+,00:01:20 Limit Box
+,00:02:50 Clip by Polygon
+AC03.07 UCS and Coordinates,00:00:00 Index
+,00:01:30 Set UCS by Point Cloud
+AC03.08 Drawing Management,00:00:00 Index
+,00:00:50 Layers and Properties
+AC03.09 Drafting and Commands,00:00:00 Intro
+,00:00:45 Rewrite history
+,00:01:20 Command EXTEND
+,00:01:32 Start constructing perpendicular linework - review fitting
+,00:02:09 Actions to take when the line doesnt fit the cloud
+,00:02:24 Are the walls not perpendicular ? New line
+,00:03:32 Match properties - layer
+,00:03:44 Set current layer to WALL
+,00:03:52 Continue with basic linework construction
+,00:04:28 Command OFFSET
+,00:06:12 Command TRIM / CHAMFER
+,00:06:53 Command FLATTEN
+,00:07:19 Esnaps
+,00:08:16 CAD Helpline
+AC03.10 Step 2a - Vertical slices and Tricks,00:00:07 Intro
+,00:00:12 Content
+,00:00:19 Are you here ?
+,00:00:48 Floor Levels
+,00:01:31 Slice through threshold
+,00:01:51 Review the elements that you are missing
+,00:02:34 Clipping Manager
+,00:03:28 LGS File
+,00:03:57 Defined object
+,00:04:26 Undefined object
+,00:04:41 View linework trick
+,00:06:36 CAD Helpline
+AC03.11 Step 2b - Ramps,00:00:07 Intro
+,00:00:30 Ramp evaluation`;
+// --- END EMBEDDED CSV DATA ---
+
+let rawData = [];
+let densityChartInstance = null;
+let themeChartInstance = null;
+
+function categorizeChapter(title) {
+    const t = title.toLowerCase();
+    if (t.includes('line') || t.includes('offset') || t.includes('trim') || t.includes('extend') || t.includes('snap') || t.includes('cad') || t.includes('draft') || t.includes('draw') || t.includes('wall') || t.includes('slice') || t.includes('ramp') || t.includes('vport') || t.includes('clip') || t.includes('poly')) return 'CAD Commands & Drafting';
+    if (t.includes('setup') || t.includes('config') || t.includes('license') || t.includes('server') || t.includes('manager') || t.includes('toolbar') || t.includes('core') || t.includes('cloudworx') || t.includes('software') || t.includes('layer') || t.includes('prop')) return 'Software Setup & Config';
+    if (t.includes('data') || t.includes('import') || t.includes('export') || t.includes('save') || t.includes('lgs') || t.includes('database') || t.includes('folder') || t.includes('project') || t.includes('history')) return 'Data Management';
+    return 'Support & General';
+}
+
+function parseCSV(csvText) {
+    const parsed = [];
+    let currentVideo = null;
+    const lines = csvText.split('\n');
+    
+    for(let i=1; i<lines.length; i++) {
+        const line = lines[i].trim();
+        if(!line) continue;
+        
+        const commaIndex = line.indexOf(',');
+        if (commaIndex === -1) continue;
+
+        let col1 = line.substring(0, commaIndex).trim();
+        let col2 = line.substring(commaIndex + 1).trim();
+
+        if (col1.startsWith('"') && col1.endsWith('"')) col1 = col1.slice(1, -1);
+        if (col2.startsWith('"') && col2.endsWith('"')) col2 = col2.slice(1, -1);
+
+        if (col1) {
+            const match = col1.match(/^(AC\d+\.\d+)\s+(.*)$/i);
+            let id = col1;
+            let title = col1;
+            if (match) {
+                id = match[1];
+                title = match[2];
+            }
+            currentVideo = { id: id, title: title, chapters: [] };
+            parsed.push(currentVideo);
+        }
+
+        if (col2 && currentVideo) {
+            const timeMatch = col2.match(/^(\d{2}:\d{2}:\d{2})\s+(.*)$/);
+            if (timeMatch) {
+                currentVideo.chapters.push({ time: timeMatch[1], title: timeMatch[2] });
+            } else {
+                currentVideo.chapters.push({ time: "--:--:--", title: col2 });
+            }
+        }
+    }
+    return parsed;
+}
+
+function wrapLabel(label) {
+    if (label.length <= 16) return label;
+    const words = label.split(' ');
+    const lines = [];
+    let currentLine = '';
+    for (const word of words) {
+        if ((currentLine + word).length > 16) {
+            if (currentLine) lines.push(currentLine.trim());
+            currentLine = word + ' ';
+        } else {
+            currentLine += word + ' ';
+        }
+    }
+    if (currentLine) lines.push(currentLine.trim());
+    return lines;
+}
+
+function initializeDashboard(newData = null) {
+    if (newData) {
+        rawData = newData;
+    } else {
+        rawData = parseCSV(embeddedCSV);
+    }
+    
+    document.getElementById('statVideos').textContent = rawData.length;
+    const totalChapters = rawData.reduce((sum, v) => sum + v.chapters.length, 0);
+    document.getElementById('statChapters').textContent = totalChapters;
+
+    const rawDensityLabels = rawData.map(v => v.id + ' ' + v.title);
+    const wrappedDensityLabels = rawDensityLabels.map(wrapLabel);
+    const densityData = rawData.map(v => v.chapters.length);
+    
+    let themeCounts = {
+        "CAD Commands & Drafting": 0,
+        "Software Setup & Config": 0,
+        "Data Management": 0,
+        "Support & General": 0
+    };
+    
+    rawData.forEach(v => {
+        v.chapters.forEach(ch => {
+            themeCounts[categorizeChapter(ch.title)]++;
+        });
+    });
+
+    const themeLabelsRaw = Object.keys(themeCounts);
+    const wrappedThemeLabels = themeLabelsRaw.map(wrapLabel);
+    const themeData = Object.values(themeCounts);
+
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.font.family = 'ui-sans-serif, system-ui, sans-serif';
+
+    if (densityChartInstance) densityChartInstance.destroy();
+    const densityCtx = document.getElementById('densityChart').getContext('2d');
+    densityChartInstance = new Chart(densityCtx, {
+        type: 'bar',
+        data: {
+            labels: wrappedDensityLabels,
+            datasets: [{
+                label: 'Chapters',
+                data: densityData,
+                backgroundColor: '#06b6d4',
+                borderRadius: 4,
+                barPercentage: 0.7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#f8fafc',
+                    bodyColor: '#cbd5e1',
+                    borderColor: '#334155',
+                    borderWidth: 1,
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            const item = tooltipItems[0];
+                            let label = item.chart.data.labels[item.dataIndex];
+                            return Array.isArray(label) ? label.join(' ') : label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: '#334155', tickLength: 0 }, 
+                    ticks: { stepSize: 5, padding: 8 } 
+                },
+                x: { 
+                    grid: { display: false },
+                    ticks: { maxRotation: 45, minRotation: 45, autoSkip: false, font: {size: 10} }
+                }
+            }
+        }
+    });
+
+    if (themeChartInstance) themeChartInstance.destroy();
+    const themeCtx = document.getElementById('themeChart').getContext('2d');
+    themeChartInstance = new Chart(themeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: wrappedThemeLabels,
+            datasets: [{
+                data: themeData,
+                backgroundColor: ['#6366f1', '#ec4899', '#06b6d4', '#8b5cf6'],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            layout: { padding: 10 },
+            plugins: {
+                legend: { 
+                    position: 'right', 
+                    labels: { color: '#f8fafc', padding: 15, font: { size: 11 }, boxWidth: 12 } 
+                },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#f8fafc',
+                    bodyColor: '#cbd5e1',
+                    borderColor: '#334155',
+                    borderWidth: 1,
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            const item = tooltipItems[0];
+                            let label = item.chart.data.labels[item.dataIndex];
+                            return Array.isArray(label) ? label.join(' ') : label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    renderDirectory(rawData);
+}
+
+const searchInput = document.getElementById('searchInput');
+const directoryList = document.getElementById('directoryList');
+const noResults = document.getElementById('noResults');
+const resultsSummary = document.getElementById('resultsSummary');
+
+function highlightText(text, query) {
+    if (!query) return text;
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    return text.replace(regex, '<span class="search-highlight">$1</span>');
+}
+
+function renderDirectory(data, query = '') {
+    directoryList.innerHTML = '';
+    let totalMatches = 0;
+    
+    data.forEach(video => {
+        let matchingChapters = video.chapters;
+        let videoTitleMatch = false;
+
+        if (query) {
+            const q = query.toLowerCase();
+            videoTitleMatch = video.title.toLowerCase().includes(q) || video.id.toLowerCase().includes(q);
+            
+            if (!videoTitleMatch) {
+                matchingChapters = video.chapters.filter(ch => ch.title.toLowerCase().includes(q));
+            }
+        }
+
+        if (matchingChapters.length > 0) {
+            totalMatches += matchingChapters.length;
+            
+            const card = document.createElement('div');
+            card.className = 'bg-slate-900 border border-slate-700 rounded overflow-hidden';
+            
+            const header = document.createElement('div');
+            header.className = 'bg-slate-800 px-4 py-3 flex flex-row items-center justify-between gap-2 border-b border-slate-700';
+            
+            const titleHTML = highlightText(`${video.id}: ${video.title}`, query);
+            
+            header.innerHTML = `
+                <h3 class="text-sm md:text-base font-bold text-slate-100 flex items-center gap-2">
+                    &#128250; <span class="truncate">${titleHTML}</span>
+                </h3>
+                <span class="text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full whitespace-nowrap">
+                    ${matchingChapters.length} Matches
+                </span>
+            `;
+            
+            const list = document.createElement('ul');
+            list.className = 'divide-y divide-slate-800/50';
+            
+            matchingChapters.forEach(ch => {
+                const li = document.createElement('li');
+                li.className = 'px-4 py-2 flex items-start gap-3 hover:bg-slate-800/50 transition-colors group';
+                
+                const chTitleHTML = highlightText(ch.title, query);
+                
+                li.innerHTML = `
+                    <span class="font-mono text-cyan-400 text-xs mt-0.5 group-hover:text-cyan-300 shrink-0">
+                        &#9202; ${ch.time}
+                    </span>
+                    <span class="text-slate-300 text-xs sm:text-sm leading-tight">
+                        ${chTitleHTML}
+                    </span>
+                `;
+                list.appendChild(li);
+            });
+            
+            card.appendChild(header);
+            card.appendChild(list);
+            directoryList.appendChild(card);
+        }
+    });
+
+    if (totalMatches === 0 && query !== '') {
+        noResults.classList.remove('hidden');
+        resultsSummary.classList.add('hidden');
+    } else {
+        noResults.classList.add('hidden');
+        if (query !== '') {
+            resultsSummary.textContent = `Found ${totalMatches} matching chapter(s)`;
+            resultsSummary.classList.remove('hidden');
+        } else {
+            resultsSummary.classList.add('hidden');
+        }
+    }
+}
+
+searchInput.addEventListener('input', (e) => {
+    const query = e.target.value.trim();
+    renderDirectory(rawData, query);
+});
+
+document.getElementById('csvFileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const text = e.target.result;
+        const parsedData = parseCSV(text);
+        if (parsedData.length > 0) {
+            initializeDashboard(parsedData);
+            const currentSearch = document.getElementById('searchInput').value.trim();
+            if (currentSearch) renderDirectory(parsedData, currentSearch);
+        } else {
+            alert("Could not parse the CSV file. Please ensure it matches the correct format.");
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+});
+
+// Initialize on load
+window.onload = () => initializeDashboard();
+
+</script>
+</body>
+</html>
